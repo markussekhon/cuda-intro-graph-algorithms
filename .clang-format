@@ -1,0 +1,25 @@
+BasedOnStyle: LLVM
+
+IndentWidth: 4
+ContinuationIndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+ColumnLimit: 80
+
+BinPackParameters: OnePerLine
+BinPackArguments: false
+AllowAllParametersOfDeclarationOnNextLine: false
+
+AlignAfterOpenBracket: DontAlign
+
+BreakBeforeBraces: Attach
+NamespaceIndentation: None
+
+AttributeMacros:
+  - __global__
+  - __device__
+  - __host__
+  - __forceinline__
+
+BreakAfterAttributes: Always
