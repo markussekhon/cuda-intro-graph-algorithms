@@ -17,8 +17,8 @@ namespace a2 {
 struct SparseGraph {
     std::size_t n;  /**< Number of nodes in the graph. */
     std::size_t m;  /**< Number of edges in the graph. */
-    node_t *index;  /** Pointer to an n=|V| offset array */
-    node_t *rowptr; /** Pointer to an m=|E| array of edge destinations */
+    node_t *rowptr; /** Pointer to an n=|V| offset array */
+    node_t *index;  /** Pointer to an m=|E| array of edge destinations */
 };
 
 namespace gpu {
@@ -30,7 +30,31 @@ namespace gpu {
  */
 __global__ void
 build_graph(SparseGraph g, edge_t const *edge_list, std::size_t m) {
-    return;
+    std::size_t th_id = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // one thread per node
+    if (th_id >= g.n) {
+        return;
+    }
+
+    // Count how many edges belond to previous nodes
+    std::size_t offset = 0;
+
+    for (std::size_t i = 0; i < m; i++) {
+        offset += edge_list[i].x < th_id ? 1 : 0;
+    }
+
+    g.rowptr[th_id] = offset;
+
+    // Store this node's neighbours in the index array
+    std::size_t position = offset;
+
+    for (std::size_t i = 0; i < m; i++) {
+        if (edge_list[i].x == th_id) {
+            g.index[position] = edge_list[i].y;
+            position++;
+        }
+    }
 }
 
 /**

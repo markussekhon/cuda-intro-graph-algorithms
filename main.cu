@@ -3,9 +3,9 @@
  * runs the CPU baseline, and then runs your code.
  */
 
+#include <algorithm>
 #include <chrono>   // for timing
 #include <iostream> // std::cout, std::endl
-#include <iterator> // std::ostream_iterator
 #include <vector>
 
 #include "dense_graph.h"
@@ -29,9 +29,12 @@ void run(DeviceGraph input,
     auto const build_start = std::chrono::high_resolution_clock::now();
 
     int threads_per_block = 256;
-    int num_blocks = (m + threads_per_block - 1) / threads_per_block;
 
-    if (m > 0) {
+    std::size_t launches = std::max(m, input.n);
+
+    int num_blocks = (launches + threads_per_block - 1) / threads_per_block;
+
+    if (num_blocks > 0) {
         csc485b::a2::gpu::build_graph<<<num_blocks, threads_per_block>>>(
             input, d_edges, m);
     }
@@ -104,7 +107,7 @@ void run_dense(csc485b::a2::edge_t const *d_edges,
         sizeof(a2::node_t) * d_result.matrix_size(),
         cudaMemcpyDeviceToHost);
 
-    std::cout << "Adjacency Matrix with m = " << m << " nodes:\n";
+    std::cout << "Adjacency Matrix with m = " << m << " edges:\n";
 
     for (std::size_t i = 0; i < n; i++) {
         for (std::size_t j = 0; j < n; j++) {
@@ -145,6 +148,30 @@ void run_sparse(csc485b::a2::edge_t const *d_edges,
 
     run(d_sg, d_result, d_edges, m);
 
+    std::vector<a2::node_t> rowptr(n), index(m);
+
+    cudaMemcpy(rowptr.data(),
+        d_offsets,
+        n * sizeof(a2::node_t),
+        cudaMemcpyDeviceToHost);
+
+    cudaMemcpy(index.data(),
+        d_neighbours,
+        m * sizeof(a2::node_t),
+        cudaMemcpyDeviceToHost);
+
+    std::cout << "\nCSR rowptr: ";
+    for (auto x : rowptr) {
+        std::cout << x << " ";
+    }
+
+    std::cout << "\nCSR index: ";
+    for (auto x : index) {
+        std::cout << x << " ";
+    }
+
+    std::cout << "\n";
+
     // clean up
     cudaFree(d_neighbours);
     cudaFree(d_offsets);
@@ -154,7 +181,7 @@ int main() {
     using namespace csc485b;
 
     // Create input
-    std::size_t constexpr n = 8;
+    std::size_t constexpr n = 32;
     std::size_t constexpr expected_degree = n >> 1;
 
     a2::edge_list_t const graph = a2::generate_graph(n, n * expected_degree);
